@@ -1,0 +1,14 @@
+## Interface: 16001
+## Title: Old Friends
+## Notes: Old Friends: compact one-line-per-friend replacement for the O Social window (friends, recent allies, requests).
+## Author: Parker Tonra
+## X-License: MIT
+## Version: 2.2
+## SavedVariables: OldFriendsDB
+
+Core.lua
+Menu.lua
+Data.lua
+UI.lua
+Views.lua
+Main.lua
