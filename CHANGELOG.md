@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Fixed: after opening an Old Friends right-click menu, setting a raid marker from Blizzard's own target menu was blocked and blamed on Old Friends. Old Friends now draws its own menus instead of borrowing Blizzard's shared menu frames.
 - The Recent Allies button now stays on the Allies tab after the first load, as "Refresh Recent Allies". The game does not update the list on its own, so this refreshes it.
 
 ## 2.3

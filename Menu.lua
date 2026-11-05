@@ -70,13 +70,16 @@ end
 ------------------------------------------------------------------ fallback menu (no MenuUtil)
 local fb
 
-local function Flatten(items, out)
+-- Submenus are drawn inline: a title line, then their items indented.
+local function Flatten(items, out, depth)
+  depth = depth or 0
   for _, it in ipairs(items) do
     if it.sub then
-      out[#out + 1] = { title = it.text }
-      Flatten(it.sub, out)
+      out[#out + 1] = { title = it.text, depth = depth }
+      Flatten(it.sub, out, depth + 1)
     else
-      out[#out + 1] = it
+      local copy = setmetatable({ depth = depth }, { __index = it })
+      out[#out + 1] = copy
     end
   end
   return out
@@ -91,13 +94,13 @@ local function FallbackLabel(it)
     text = (on and "[x] " or "[ ] ") .. text
   end
   if it.disabled then text = "|cff777777" .. text .. "|r" end
-  return text
+  return string.rep("   ", it.depth or 0) .. text
 end
 
 local function FallbackLayout()
   local list = fb.list
   local n = #list
-  fb.panel:SetSize(210, n * 16 + 10)
+  local w = 150
   for i = 1, math.max(n, #fb.buttons) do
     local b = fb.buttons[i]
     if i <= n then
@@ -118,6 +121,15 @@ local function FallbackLayout()
           RunSafe(it.func, it.text)
           if it.keepOpen then FallbackLayout() else fb:Hide() end
         end)
+        b:SetScript("OnEnter", function(self)
+          local it = self.item
+          if it and it.tooltip then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:AddLine(it.tooltip, 1, 0.3, 0.3, true)
+            GameTooltip:Show()
+          end
+        end)
+        b:SetScript("OnLeave", function() GameTooltip:Hide() end)
         fb.buttons[i] = b
       end
       b.item = list[i]
@@ -125,11 +137,15 @@ local function FallbackLayout()
       b:SetPoint("TOPLEFT", fb.panel, "TOPLEFT", 5, -5 - (i - 1) * 16)
       b:SetPoint("TOPRIGHT", fb.panel, "TOPRIGHT", -5, -5 - (i - 1) * 16)
       b.label:SetText(FallbackLabel(list[i]))
+      local fs = b.label
+      local sw = fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth() or fs:GetStringWidth()
+      w = math.max(w, (sw or 0) + 18)
       b:Show()
     elseif b then
       b:Hide()
     end
   end
+  fb.panel:SetSize(math.min(w, 320), n * 16 + 10)
 end
 
 local function EnsureFallback()
@@ -162,16 +178,17 @@ local function OpenFallback(items)
 end
 
 ------------------------------------------------------------------ public: menu
+-- Always our own menu frames. Blizzard's MenuUtil pools its menu frames; if an addon opens the first
+-- menu of a session, those pooled frames carry addon taint, and Blizzard's own right-click menus
+-- (raid markers on the target frame -> SetRaidTarget) then get blocked and blamed on this addon.
+-- Set MF.useBlizzardMenu = true only to compare behaviour while debugging.
 function MF.OpenMenu(owner, items)
   if not items or #items == 0 then return end
-  if MenuUtil and MenuUtil.CreateContextMenu then
+  if MF.useBlizzardMenu and MenuUtil and MenuUtil.CreateContextMenu then
     local ok = pcall(MenuUtil.CreateContextMenu, owner, function(_, root)
       BuildDescription(root, items)
     end)
     if ok then return end
-    MF.Log("fallback", "MenuUtil.CreateContextMenu failed, using the built-in fallback menu")
-  else
-    MF.Log("fallback", "MenuUtil missing, using the built-in fallback menu")
   end
   OpenFallback(items)
 end
