@@ -222,7 +222,7 @@ function MF.DoParty(e, anchor)
   if not e then return end
   MF.SetAction("invite " .. tostring(e.name))
   if e.kind == "ally" then
-    if not e.online then MF.Print("Player is offline.") return end
+    if not e.online and not e.cached then MF.Print("Player is offline.") return end
     if e.inviteBlocked then MF.Print(e.inviteReason or "Cannot invite: different realm ruleset.") return end
     if e.fake then MF.Print("(test) would invite " .. tostring(e.name)) return end
     MF.InviteByName(e.fullName, e.guid)
@@ -265,11 +265,14 @@ function MF.PartyEnter(row)
   local tt = GameTooltip
   tt:SetOwner(row.party, "ANCHOR_LEFT")
   if e.kind == "ally" then
-    if e.online and e.inviteBlocked then
+    if (e.online or e.cached) and e.inviteBlocked then
       tt:AddLine("Invite to party", 1, 1, 1)
       tt:AddLine(e.inviteReason or "Different realm ruleset", 1, 0.25, 0.25, true)
     elseif e.online then
       tt:AddLine("Invite to party", 1, 1, 1)
+    elseif e.cached then
+      tt:AddLine("Invite to party", 1, 1, 1)
+      tt:AddLine("Saved list: online status unknown until Recent Allies is loaded.", 0.7, 0.7, 0.7, true)
     else
       tt:AddLine("Invite to party", 1, 1, 1)
       tt:AddLine("Player is offline", 1, 0.25, 0.25)
@@ -294,6 +297,7 @@ function MF.TogglePin(e)
   MF.SetAction("toggle pin")
   MF.Log("action", "C_RecentAllies.SetRecentAllyPinned " .. tostring(e.name) .. " -> " .. tostring(not e.pinned))
   if e.fake then MF.Print("(test) pin toggled for " .. tostring(e.name)) return end
+  if e.cached then MF.Print("Load Recent Allies first (saved list).") return end
   if C_RecentAllies and C_RecentAllies.SetRecentAllyPinned and e.guid then
     C_RecentAllies.SetRecentAllyPinned(e.guid, not e.pinned)
   else
@@ -740,7 +744,8 @@ function MF.AllyMenu(row, e)
   local items = { { title = tostring(e.name or "?") } }
   local function add(it) items[#items + 1] = it end
   add({ text = "Whisper", func = function() MF.Whisper(e) end })
-  add({ text = "Invite", disabled = not e.online, tooltip = (not e.online) and "Player is offline" or nil,
+  local canInvite = e.online or e.cached
+  add({ text = "Invite", disabled = not canInvite, tooltip = (not canInvite) and "Player is offline" or nil,
     func = function() MF.DoParty(e, row) end })
   -- Add WoW Friend: the add-on cannot call C_BattleNet.SendTitleFriendInviteByName (restricted), so this opens
   -- Blizzard's Add Friend window pre-filled with the character; its Send Request button does the real work.
@@ -753,7 +758,7 @@ function MF.AllyMenu(row, e)
     add({ text = "Add Friend", func = function() MF.AllyAddLegacyFriend(e) end })
   end
   local canNote = MF.testMode
-  if not canNote and C_RecentAllies and C_RecentAllies.CanSetRecentAllyNote and C_RecentAllies.SetRecentAllyNote and e.guid then
+  if not canNote and not e.cached and C_RecentAllies and C_RecentAllies.CanSetRecentAllyNote and C_RecentAllies.SetRecentAllyNote and e.guid then
     local ok, v = pcall(C_RecentAllies.CanSetRecentAllyNote, e.guid)
     canNote = ok and v and true or false
   end
@@ -989,12 +994,12 @@ R.ally = function(row, item)
   MF.SetIcon(row.star, atlas, "P", 1, 0.82, 0)
   row.star.dimmable = not e.pinned
 
-  row.name:SetText(ColorName(e.name or "?", e.online and MF.ClassHex(e.classFile) or GREY_HEX))
+  row.name:SetText(ColorName(e.name or "?", (e.online or e.cached) and MF.ClassHex(e.classFile) or GREY_HEX))
   row.char:SetText(e.level and ("|cffaaaaaa" .. e.level .. "|r") or "")
   row.loc:SetText(e.interaction or "")
   row.extra:SetText(e.location and ("|cff9a9a9a" .. e.location .. "|r") or "")
   row.party:Show()
-  StyleParty(row.party, e.online and not e.inviteBlocked, "INVITE", false)
+  StyleParty(row.party, (e.online or e.cached) and not e.inviteBlocked, "INVITE", false)
 end
 
 local function RequestTypeLabel(inv)
@@ -1104,10 +1109,15 @@ function MF.BuildAllyItems()
   if not MF.AlliesSupported() and not MF.testMode then
     return { { type = "message", text = "Recent Allies is unavailable." } }
   end
-  if not MF.AlliesReady() then
-    return { { type = "message", text = "Recent Allies has not loaded yet. Open Blizzard's window once (Shift+O), click Recent Allies, then come back." } }
-  end
   local items = {}
+  if MF.alliesCached then
+    if #MF.allies == 0 then
+      return { { type = "message", text = "Recent Allies is not loaded yet. Click Load Recent Allies below, or open Blizzard's window (Shift+O) on Recent Allies." } }
+    end
+    local at = MF.DB.allyCache and MF.DB.allyCache.at
+    items[1] = { type = "header", plain = "Saved list" .. (at and (" from " .. date("%b %d %H:%M", at)) or "") .. " (not live)" }
+  end
+  local first = #items
   local q = SearchText()
   local legacy, pinned, unpinned = {}, {}, {}
   for _, e in ipairs(MF.allies) do
@@ -1120,8 +1130,8 @@ function MF.BuildAllyItems()
   AddSection(items, "ally", "a_legacy", "Legacy Friends", legacy)
   AddSection(items, "ally", "a_pinned", "Pinned", pinned)
   AddSection(items, "ally", "a_unpinned", "Unpinned", unpinned)
-  if #items == 0 then
-    items[1] = { type = "message", text = (#MF.allies == 0) and "No recent allies yet." or "No allies match the current search or filter." }
+  if #items == first then
+    items[#items + 1] = { type = "message", text = (#MF.allies == 0) and "No recent allies yet." or "No allies match the current search or filter." }
   end
   return items
 end
@@ -1186,6 +1196,7 @@ function MF.Refresh()
   else MF.FetchIgnores() end
   MF.UpdateBadges()
   MF.Rebuild()
+  MF.UpdateAllyLoadButton()
   MF.Log("refresh", format("tab %s: %d items", tab, #(MF.items or {})))
 end
 

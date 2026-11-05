@@ -87,7 +87,7 @@ toggleBtn:SetScript("OnClick", function() MF.Toggle() end)
 ------------------------------------------------------------------ events
 local ev = CreateFrame("Frame")
 local EVENTS = {
-  "ADDON_LOADED", "PLAYER_ENTERING_WORLD", "UPDATE_BINDINGS", "PLAYER_REGEN_ENABLED",
+  "ADDON_LOADED", "PLAYER_ENTERING_WORLD", "UPDATE_BINDINGS", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
   -- friends / battle.net
   "FRIENDLIST_UPDATE", "BN_FRIEND_LIST_SIZE_CHANGED", "BN_FRIEND_INFO_CHANGED", "BN_FRIEND_ACCOUNT_ONLINE",
   "BN_FRIEND_ACCOUNT_OFFLINE", "BATTLE_NET_FRIEND_TAG_ENABLED_STATUS_UPDATED", "BN_CUSTOM_MESSAGE_CHANGED",
@@ -144,9 +144,16 @@ ev:SetScript("OnEvent", function(_, event, arg1, arg2)
     end
     return
   end
+  if event == "PLAYER_REGEN_DISABLED" then
+    MF.HideAllyLoaderForCombat() -- last moment a secure frame may be hidden / unanchored
+    return
+  end
   if event == "PLAYER_REGEN_ENABLED" then
     if bindDirty then ApplyBindings() end
-    if MF.frame then MF.ReskinPending() end -- secure buttons skipped during combat
+    if MF.frame then
+      MF.ReskinPending() -- secure buttons skipped during combat
+      MF.UpdateAllyLoadButton()
+    end
     return
   end
   if not MF.frame then return end

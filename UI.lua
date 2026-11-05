@@ -1072,6 +1072,119 @@ local function EnsureStatusPopup()
   return p
 end
 
+------------------------------------------------------------------ Recent Allies loader (secure, experiment)
+-- The game loads Recent Allies only when Blizzard's own Recent Allies view is shown: that view calls the
+-- restricted C_RecentAllies.TryRequestRecentAlliesData, which an add-on may not call. This button runs a
+-- secure macro that does what the user would do by hand:
+--   /click QuickJoinToastButton      the Social micro button: opens Blizzard's Social window
+--   /click OldFriendsAllyTabClick    a secure "click" proxy aimed at that window's Recent Allies tab
+--   /click SocialUIFrameCloseButton  closes the window again
+-- The proxy is aimed from a hook on SocialUIFrame's OnShow, because the window's tab buttons are pooled and
+-- only exist while it is open. Both buttons are secure, so they are parented to UIParent (a secure child
+-- would stop the main window from hiding in combat), and the Load button is hidden and unanchored in combat.
+local allyLoader, allyTabProxy, socialHooked
+
+local function FindRecentAlliesTab()
+  local sf = _G.SocialUIFrame
+  if not (sf and sf.EnumerateTabs and SocialUITabType and SocialUITabType.RecentAllies) then return nil end
+  for tab in sf:EnumerateTabs() do
+    if tab.tabData and tab.tabData.tabType == SocialUITabType.RecentAllies then return tab end
+  end
+  return nil
+end
+
+function MF.AimAllyTabProxy()
+  if not allyTabProxy or InCombatLockdown() then return end
+  local ok, tab = pcall(FindRecentAlliesTab)
+  allyTabProxy:SetAttribute("clickbutton", (ok and tab) or nil)
+  MF.Log("allies", "loader aimed at Blizzard's Recent Allies tab: " .. tostring(ok and tab ~= nil))
+end
+
+local function CanLoadAllies()
+  return (_G.SocialUIFrame and _G.QuickJoinToastButton and _G.SocialUIFrameCloseButton and SocialUITabType
+    and SocialUITabType.RecentAllies) and true or false
+end
+
+local function EnsureAllyLoader()
+  if allyLoader then return allyLoader end
+  if InCombatLockdown() or not CanLoadAllies() then return nil end
+  allyTabProxy = CreateFrame("Button", "OldFriendsAllyTabClick", UIParent, "SecureActionButtonTemplate")
+  allyTabProxy:RegisterForClicks("AnyUp", "AnyDown")
+  allyTabProxy:SetAttribute("type", "click")
+  allyTabProxy:SetAttribute("useOnKeyDown", false) -- /click sends an up-click
+  allyTabProxy:Hide()
+  if not socialHooked then
+    SocialUIFrame:HookScript("OnShow", function() MF.AimAllyTabProxy() end)
+    socialHooked = true
+  end
+
+  local b = MakeTextButton(UIParent, 150, 22, "Load Recent Allies", "SecureActionButtonTemplate")
+  b:RegisterForClicks("AnyUp", "AnyDown")
+  b:SetAttribute("type", "macro")
+  b:SetScript("PreClick", function(self)
+    if InCombatLockdown() then return end
+    local open = SocialUIFrame:IsShown()
+    if open then MF.AimAllyTabProxy() end
+    self:SetAttribute("macrotext", open and "/click OldFriendsAllyTabClick"
+      or "/click QuickJoinToastButton\n/click OldFriendsAllyTabClick\n/click SocialUIFrameCloseButton")
+  end)
+  b:SetScript("PostClick", function(self, _, down)
+    if not MF.IsActionPhase(self, down) then return end
+    MF.SetAction("load recent allies")
+    MF.Log("allies", "Load Recent Allies clicked (secure macro)")
+    C_Timer.After(3, function()
+      if not MF.AlliesReady() then
+        MF.Print("Recent Allies did not load. Open Blizzard's window (Shift+O) and click Recent Allies.")
+      end
+      MF.UpdateAllyLoadButton()
+    end)
+  end)
+  b:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:AddLine("Load Recent Allies", 1, 1, 1)
+    GameTooltip:AddLine("The game only loads this list when Blizzard's own Recent Allies view opens. "
+      .. "This opens it for a moment and closes it again.", 0.8, 0.8, 0.8, true)
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  b:Hide()
+  MF.frame:HookScript("OnHide", function() MF.UpdateAllyLoadButton() end)
+  allyLoader = b
+  MF.Log("secure", "Recent Allies loader created")
+  return b
+end
+
+-- Shows the Load button over the bottom button spot while the Allies tab shows the saved list.
+function MF.UpdateAllyLoadButton()
+  if InCombatLockdown() then return end -- PLAYER_REGEN_ENABLED calls this again
+  local f = MF.frame
+  local want = f and f:IsShown() and MF.tab == "allies" and not MF.testMode and MF.AlliesSupported()
+    and not MF.AlliesReady()
+  if not want then
+    if allyLoader then
+      allyLoader:Hide()
+      allyLoader:ClearAllPoints()
+    end
+    return
+  end
+  local b = EnsureAllyLoader()
+  if not b then return end
+  b:SetScale(f:GetScale())
+  b:SetFrameStrata(f:GetFrameStrata())
+  b:SetFrameLevel(f:GetFrameLevel() + 20)
+  b:ClearAllPoints()
+  b:SetPoint("CENTER", f.bottomBtn, "CENTER")
+  b:Show()
+end
+
+-- PLAYER_REGEN_DISABLED: secure frames can still be changed during this event, not after it.
+function MF.HideAllyLoaderForCombat()
+  if allyLoader then
+    allyLoader:Hide()
+    allyLoader:ClearAllPoints()
+  end
+end
+
 function MF.ToggleStatusPopup(owner)
   if MF.testMode then
     MF.Print("(test) status popup: Away would run /afk, Busy would run /dnd (in-game flags only)")
@@ -1340,6 +1453,7 @@ function MF.UpdateBottom()
   else
     b:Hide()
   end
+  MF.UpdateAllyLoadButton()
 end
 
 function MF.UpdateFilterButton()

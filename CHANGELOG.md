@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+- Fixed: opening Recent Allies no longer triggers the "blocked from an action only available to the Blizzard UI" popup.
+- Recent Allies remembers the last list it saw and shows it, marked "Saved list", until the game loads live data. You can invite from the saved list. Pinning and notes wait for live data.
+- New Load Recent Allies button (experimental). The game only loads this list when Blizzard's own Recent Allies view opens, so the button opens that view for a moment and closes it.
+
 ## 2.2: first public release
 - Compact one-line-per-friend replacement for the Social window (O key).
 - Friends, Recent Allies, Requests and Ignore tabs, with a one-click party invite on every online friend and ally.

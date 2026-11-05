@@ -658,25 +658,65 @@ local function NormalizeAlly(d, order)
   e.name = (useFull and NotNil(c.fullName)) or c.name or "?"
   -- Same-ruleset rule: an ally on a realm with a different ruleset cannot be invited.
   local allyRealm = NotNil(c.realmName) or (e.fullName and e.fullName:match("^.-%-(.+)$")) or nil
+  e.realm = allyRealm
   e.inviteBlocked, e.inviteReason = MF.RulesetMismatch(allyRealm)
   e.presence = (not e.online) and "offline" or (s.isAFK and "away") or (s.isDND and "busy") or "online"
   e.search = table.concat({ e.name or "", e.fullName or "", e.location or "", e.interaction or "", e.note or "" }, "\n"):lower()
   return e
 end
 
+-- Saved copy of the last live list (OldFriendsDB.allyCache). The game only loads Recent Allies when
+-- Blizzard's own Recent Allies view is shown, so until then the tab shows this copy, marked "saved".
+local CACHE_FIELDS = { "name", "fullName", "guid", "level", "classFile", "pinned", "legacy", "interaction",
+  "lastStamp", "note", "realm" }
+
+local function SaveAllyCache(list)
+  if not MF.DB then return end
+  local out = {}
+  for i, e in ipairs(list) do
+    local c = {}
+    for _, k in ipairs(CACHE_FIELDS) do c[k] = e[k] end
+    out[i] = c
+  end
+  MF.DB.allyCache = { at = time(), list = out }
+end
+
+local function CachedAllies()
+  local cache = MF.DB and MF.DB.allyCache
+  local list = {}
+  if type(cache) ~= "table" or type(cache.list) ~= "table" then return list end
+  for i, c in ipairs(cache.list) do
+    if type(c) == "table" and c.name then
+      local e = { kind = "ally", cached = true, order = i, online = false, presence = "offline", interactions = {} }
+      for _, k in ipairs(CACHE_FIELDS) do e[k] = c[k] end
+      e.lastStamp = e.lastStamp or 0
+      e.inviteBlocked, e.inviteReason = MF.RulesetMismatch(e.realm)
+      e.search = table.concat({ e.name or "", e.fullName or "", e.interaction or "", e.note or "" }, "\n"):lower()
+      list[#list + 1] = e
+    end
+  end
+  return list
+end
+
 function MF.FetchAllies()
   local list = {}
   local raw
-  MF.RequestAlliesData()
+  MF.alliesCached = false
   if MF.testMode then
     raw = FakeAllies()
-  elseif MF.AlliesSupported() and C_RecentAllies.GetRecentAllies then
+  elseif MF.AlliesReady() and MF.AlliesSupported() and C_RecentAllies.GetRecentAllies then
     local ok, res = pcall(C_RecentAllies.GetRecentAllies)
     if ok and type(res) == "table" then raw = res end
   end
-  for idx, d in ipairs(raw or {}) do
-    local ok, e = pcall(NormalizeAlly, d, idx)
-    if ok and e then list[#list + 1] = e end
+  if raw then
+    for idx, d in ipairs(raw) do
+      local ok, e = pcall(NormalizeAlly, d, idx)
+      if ok and e then list[#list + 1] = e end
+    end
+    if not MF.testMode then SaveAllyCache(list) end
+  else
+    list = CachedAllies()
+    MF.alliesCached = true
   end
   table.sort(list, function(a, b)
     if a.online ~= b.online then return a.online end
@@ -684,7 +724,7 @@ function MF.FetchAllies()
     return a.order < b.order
   end)
   MF.allies = list
-  MF.Log("fetch", format("allies: %d%s", #list, MF.testMode and " (test mode)" or ""))
+  MF.Log("fetch", format("allies: %d%s", #list, MF.testMode and " (test mode)" or (MF.alliesCached and " (saved list)" or "")))
 end
 
 function MF.AllyPasses(e, q)

@@ -45,6 +45,7 @@ Blizzard restricts some social functions so addons can't automate them, which li
 *   Adding by character: This goes through Blizzard's default popup.
 *   Queue filters: The addon guesses from the queue data it is allowed to see, so the results may be off.
 *   Faction and ruleset icons: Offline friends and legacy-list friends don't show them, because the game doesn't give that information for them.
+*   Recent Allies: The game only loads this list when Blizzard's own Recent Allies view opens. Until then, Old Friends shows the last list it saw. The Load Recent Allies button opens Blizzard's view for a moment to load the live list.
 
 Privacy note: Old Friends never sends or reads anything outside the game. Nothing is collected.
 
