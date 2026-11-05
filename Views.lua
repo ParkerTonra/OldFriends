@@ -1105,7 +1105,7 @@ function MF.BuildAllyItems()
     return { { type = "message", text = "Recent Allies is unavailable." } }
   end
   if not MF.AlliesReady() then
-    return { { type = "message", text = "Loading..." } }
+    return { { type = "message", text = "Recent Allies has not loaded yet. Open Blizzard's window once (Shift+O), click Recent Allies, then come back." } }
   end
   local items = {}
   local q = SearchText()

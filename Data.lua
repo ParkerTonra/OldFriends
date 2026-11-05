@@ -622,22 +622,10 @@ function MF.AlliesSupported()
   return (ok1 and a and ok2 and b) and true or false
 end
 
--- Ask the client to load the recent-allies data (stock does this when its Recent Allies list is shown).
--- The API docs flag this call HasRestrictions, which does NOT necessarily mean "Blizzard UI only": the first
--- in-game test showed the tab working while it was called. So it is called again, throttled, and if the client
--- ever reports it as blocked, MF.OnBlocked sets DB.noAllyRequest and we stop calling it (saved).
-local lastAllyRequest = 0
+-- C_RecentAllies.TryRequestRecentAlliesData is HasRestrictions: calling it from an addon raises the
+-- "blocked from an action only available to the Blizzard UI" popup (pcall cannot suppress it). So this
+-- addon never calls it. The data loads when Blizzard's own Recent Allies list is shown; we only read it.
 function MF.RequestAlliesData()
-  if MF.testMode or (MF.DB and MF.DB.noAllyRequest) then return end
-  local r = C_RecentAllies
-  if not (r and r.TryRequestRecentAlliesData) then return end
-  local now = GetTime and GetTime() or 0
-  if now - lastAllyRequest < 15 then return end
-  lastAllyRequest = now
-  MF.SetAction("request recent allies data")
-  MF.Log("allies", "TryRequestRecentAlliesData()")
-  local ok, err = pcall(r.TryRequestRecentAlliesData)
-  if not ok then MF.Log("allies", "request failed: " .. tostring(err)) end
 end
 
 function MF.AlliesReady()
