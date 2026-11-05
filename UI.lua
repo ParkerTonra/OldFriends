@@ -1131,7 +1131,7 @@ local function EnsureAllyLoader()
   b:SetScript("PostClick", function(self, _, down)
     if not MF.IsActionPhase(self, down) then return end
     MF.SetAction("load recent allies")
-    MF.Log("allies", "Load Recent Allies clicked (secure macro)")
+    MF.Log("allies", tostring(self.label:GetText()) .. " clicked (secure macro)")
     C_Timer.After(3, function()
       if not MF.alliesFull then
         MF.Print("Recent Allies did not load. Open Blizzard's window (Shift+O) and click Recent Allies.")
@@ -1141,7 +1141,7 @@ local function EnsureAllyLoader()
   end)
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:AddLine("Load Recent Allies", 1, 1, 1)
+    GameTooltip:AddLine(self.label:GetText(), 1, 1, 1)
     GameTooltip:AddLine("The game only loads this list when Blizzard's own Recent Allies view opens. "
       .. "This opens it for a moment and closes it again.", 0.8, 0.8, 0.8, true)
     GameTooltip:Show()
@@ -1154,12 +1154,12 @@ local function EnsureAllyLoader()
   return b
 end
 
--- Shows the Load button over the bottom button spot while the Allies tab shows the saved list.
+-- Shows the Load/Refresh button over the bottom button spot on the Allies tab. The game does not
+-- refresh the list on its own after the first load, so the button stays as "Refresh" afterwards.
 function MF.UpdateAllyLoadButton()
   if InCombatLockdown() then return end -- PLAYER_REGEN_ENABLED calls this again
   local f = MF.frame
   local want = f and f:IsShown() and MF.tab == "allies" and not MF.testMode and MF.AlliesSupported()
-    and not MF.alliesFull
   if not want then
     if allyLoader then
       allyLoader:Hide()
@@ -1174,6 +1174,7 @@ function MF.UpdateAllyLoadButton()
   b:SetFrameLevel(f:GetFrameLevel() + 20)
   b:ClearAllPoints()
   b:SetPoint("CENTER", f.bottomBtn, "CENTER")
+  b:SetLabel(MF.alliesFull and "Refresh Recent Allies" or "Load Recent Allies")
   b:Show()
 end
 

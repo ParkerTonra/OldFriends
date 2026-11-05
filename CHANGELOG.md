@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- The Recent Allies button now stays on the Allies tab after the first load, as "Refresh Recent Allies". The game does not update the list on its own, so this refreshes it.
+
 ## 2.3
 - Fixed: opening Recent Allies no longer triggers the "blocked from an action only available to the Blizzard UI" popup.
 - Recent Allies remembers the last list it saw and shows it, marked "Saved list", until the game loads live data. You can invite from the saved list. Pinning and notes wait for live data.
