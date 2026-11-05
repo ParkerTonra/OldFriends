@@ -628,6 +628,26 @@ end
 function MF.RequestAlliesData()
 end
 
+-- True once Blizzard's own Recent Allies view has been shown this session: that is when the game requests the
+-- full list (TryRequestRecentAlliesData, Blizzard-only). Before that the list may be partial.
+MF.alliesFull = false
+function MF.HookBlizzardAllies()
+  if MF.alliesViewHooked then return end
+  local sf = _G.SocialUIFrame
+  local view = sf and sf.RecentAlliesList
+  if not (view and view.HookScript) then return end
+  -- Kept minimal and deferred: this can run in the middle of the Load button's secure macro.
+  view:HookScript("OnShow", function()
+    MF.alliesFull = true
+    C_Timer.After(0.5, function()
+      MF.Log("allies", "Blizzard's Recent Allies view shown: full list requested")
+      MF.RequestRefresh()
+      MF.UpdateAllyLoadButton()
+    end)
+  end)
+  MF.alliesViewHooked = true
+end
+
 function MF.AlliesReady()
   if MF.testMode then return true end
   local r = C_RecentAllies
@@ -713,7 +733,25 @@ function MF.FetchAllies()
       local ok, e = pcall(NormalizeAlly, d, idx)
       if ok and e then list[#list + 1] = e end
     end
-    if not MF.testMode then SaveAllyCache(list) end
+    if MF.testMode then
+      -- fake data, nothing to save
+    elseif MF.alliesFull then
+      SaveAllyCache(list)
+    else
+      -- At login the game reports the data as ready but holds only part of the list (the rest arrives when
+      -- Blizzard's Recent Allies view requests it). Fill the gaps from the saved copy, marked as saved.
+      local seen = {}
+      for _, e in ipairs(list) do
+        if e.guid then seen[e.guid] = true end
+        if e.fullName then seen[e.fullName] = true end
+      end
+      for _, c in ipairs(CachedAllies()) do
+        if not ((c.guid and seen[c.guid]) or (c.fullName and seen[c.fullName])) then
+          c.order = #list + 1
+          list[#list + 1] = c
+        end
+      end
+    end
   else
     list = CachedAllies()
     MF.alliesCached = true

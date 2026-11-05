@@ -997,7 +997,11 @@ R.ally = function(row, item)
   row.name:SetText(ColorName(e.name or "?", (e.online or e.cached) and MF.ClassHex(e.classFile) or GREY_HEX))
   row.char:SetText(e.level and ("|cffaaaaaa" .. e.level .. "|r") or "")
   row.loc:SetText(e.interaction or "")
-  row.extra:SetText(e.location and ("|cff9a9a9a" .. e.location .. "|r") or "")
+  if e.cached then
+    row.extra:SetText("|cff9a9a9asaved|r")
+  else
+    row.extra:SetText(e.location and ("|cff9a9a9a" .. e.location .. "|r") or "")
+  end
   row.party:Show()
   StyleParty(row.party, (e.online or e.cached) and not e.inviteBlocked, "INVITE", false)
 end
@@ -1116,6 +1120,8 @@ function MF.BuildAllyItems()
     end
     local at = MF.DB.allyCache and MF.DB.allyCache.at
     items[1] = { type = "header", plain = "Saved list" .. (at and (" from " .. date("%b %d %H:%M", at)) or "") .. " (not live)" }
+  elseif not MF.alliesFull and not MF.testMode then
+    items[1] = { type = "header", plain = "Partly loaded: Load Recent Allies below for the full list" }
   end
   local first = #items
   local q = SearchText()

@@ -137,6 +137,7 @@ ev:SetScript("OnEvent", function(_, event, arg1, arg2)
     return
   end
   if event == "PLAYER_ENTERING_WORLD" or event == "UPDATE_BINDINGS" then
+    MF.HookBlizzardAllies()
     ApplyBindings()
     if MF.frame then
       MF.LayoutTabs()

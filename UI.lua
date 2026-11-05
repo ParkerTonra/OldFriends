@@ -1133,7 +1133,7 @@ local function EnsureAllyLoader()
     MF.SetAction("load recent allies")
     MF.Log("allies", "Load Recent Allies clicked (secure macro)")
     C_Timer.After(3, function()
-      if not MF.AlliesReady() then
+      if not MF.alliesFull then
         MF.Print("Recent Allies did not load. Open Blizzard's window (Shift+O) and click Recent Allies.")
       end
       MF.UpdateAllyLoadButton()
@@ -1159,7 +1159,7 @@ function MF.UpdateAllyLoadButton()
   if InCombatLockdown() then return end -- PLAYER_REGEN_ENABLED calls this again
   local f = MF.frame
   local want = f and f:IsShown() and MF.tab == "allies" and not MF.testMode and MF.AlliesSupported()
-    and not MF.AlliesReady()
+    and not MF.alliesFull
   if not want then
     if allyLoader then
       allyLoader:Hide()
