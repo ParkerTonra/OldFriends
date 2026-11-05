@@ -3,6 +3,7 @@
 ## Notes: Old Friends: compact one-line-per-friend replacement for the O Social window (friends, recent allies, requests).
 ## Author: Parker Tonra
 ## X-License: MIT
+## X-Curse-Project-ID: 1785460
 ## Version: 2.2
 ## SavedVariables: OldFriendsDB
 
