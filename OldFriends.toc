@@ -4,7 +4,7 @@
 ## Author: Parker Tonra
 ## X-License: MIT
 ## X-Curse-Project-ID: 1785460
-## Version: 2.3
+## Version: 2.4
 ## SavedVariables: OldFriendsDB
 
 Core.lua
