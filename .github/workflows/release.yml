@@ -1,0 +1,24 @@
+# Pushing a tag (e.g. 2.4) builds the addon zip and uploads it to CurseForge and GitHub Releases.
+# Tag names containing "alpha" or "beta" upload as that release type; anything else is a full release.
+# Needs the repository secret CF_API_KEY (a CurseForge API token). Only runs on the public repo.
+name: Package and release
+
+on:
+  push:
+    tags:
+      - "**"
+
+jobs:
+  release:
+    if: github.repository == 'ParkerTonra/OldFriends'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: BigWigsMods/packager@v2
